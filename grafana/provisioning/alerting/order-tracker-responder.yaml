@@ -1,0 +1,28 @@
+apiVersion: 1
+
+# Sends Order Tracker alerts to the incident responder (incident-response/) running on the host.
+contactPoints:
+  - orgId: 1
+    name: order-tracker-responder
+    receivers:
+      # Same uid as the contact point first created in the UI, so provisioning adopts it
+      # instead of adding a second webhook that would deliver every notification twice.
+      - uid: fg0bfqfy2rlkwc
+        type: webhook
+        settings:
+          url: http://host.docker.internal:8001/alerts
+          httpMethod: POST
+        disableResolveMessage: false
+
+# Provisioning replaces the whole notification policy tree, so this keeps Grafana's
+# default root policy and adds one route for alerts labelled service=order-tracker.
+policies:
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by:
+      - grafana_folder
+      - alertname
+    routes:
+      - receiver: order-tracker-responder
+        object_matchers:
+          - ["service", "=", "order-tracker"]

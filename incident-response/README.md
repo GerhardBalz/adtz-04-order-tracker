@@ -12,9 +12,9 @@ uv run --frozen python incident-response/responder.py
 
 It listens on `127.0.0.1:8001`. `GET /healthz` reports the queue length. Run the tests with `uv run --frozen pytest -q incident-response/tests`; they also run as part of the root `uv run --frozen pytest -q`.
 
-To connect Grafana, add a **Webhook** contact point with URL `http://host.docker.internal:8001/alerts` (Docker Desktop) and route the Order Tracker alert to it. On Linux, Grafana needs `extra_hosts: ["host.docker.internal:host-gateway"]` and the responder must listen on that interface (`RESPONDER_HOST=0.0.0.0`). If you set `RESPONDER_TOKEN`, configure the contact point's Authorization header as `Bearer <token>`.
+Grafana is already connected: `grafana/provisioning/alerting/order-tracker-responder.yaml` provisions the `order-tracker-responder` webhook contact point (`POST http://host.docker.internal:8001/alerts`, Docker Desktop) and routes alerts labelled `service=order-tracker` to it. Grafana loads it at startup, so after editing it run `docker compose restart grafana`. On Linux, Grafana needs `extra_hosts: ["host.docker.internal:host-gateway"]` and the responder must listen on that interface (`RESPONDER_HOST=0.0.0.0`). If you set `RESPONDER_TOKEN`, the contact point must send `Authorization: Bearer <token>` (webhook settings `authorization_scheme: Bearer` and `authorization_credentials`). Do not commit the token.
 
-To check the pipeline without starting an incident fix, send a test alert with the label `alertname=ResponderTest`. Claude Code then runs with no tools and only acknowledges it. A recorded run is in [EVIDENCE.md](EVIDENCE.md).
+To check the pipeline without starting an incident fix, send a test alert with the label `alertname=ResponderTest`. Claude Code then runs with no tools and only acknowledges it. Recorded test (Q5) and incident (Q6) runs are in [EVIDENCE.md](EVIDENCE.md).
 
 ## What it does
 
