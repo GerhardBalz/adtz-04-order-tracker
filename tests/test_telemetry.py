@@ -92,3 +92,31 @@ def test_unknown_paths_share_one_route_value(client, telemetry):
     assert client.get("/no/such/path").status_code == 404
     assert has_request_point(metric_reader, "unmatched", 404)
     assert not any("/no/such/path" in str(p.attributes) for p in request_points(metric_reader))
+
+
+def test_exporters_use_otlp_when_endpoint_is_set(monkeypatch):
+    from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+    from app.telemetry import default_exporters
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+    span, metric, log = default_exporters()
+    assert isinstance(span, OTLPSpanExporter)
+    assert isinstance(metric, OTLPMetricExporter)
+    assert isinstance(log, OTLPLogExporter)
+
+
+def test_exporters_fall_back_to_console(monkeypatch):
+    from opentelemetry.sdk._logs.export import ConsoleLogRecordExporter
+    from opentelemetry.sdk.metrics.export import ConsoleMetricExporter
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
+    from app.telemetry import default_exporters
+
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    span, metric, log = default_exporters()
+    assert isinstance(span, ConsoleSpanExporter)
+    assert isinstance(metric, ConsoleMetricExporter)
+    assert isinstance(log, ConsoleLogRecordExporter)

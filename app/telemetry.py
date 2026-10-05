@@ -1,7 +1,11 @@
 import logging
+import os
 import time
 
 from opentelemetry import _logs, metrics, trace
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.logging.handler import LoggingHandler
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, ConsoleLogRecordExporter
@@ -18,8 +22,19 @@ SERVICE_NAME = "order-tracker"
 _configured = False
 
 
+def default_exporters():
+    """Return (span, metric, log) exporters.
+
+    With OTEL_EXPORTER_OTLP_ENDPOINT set (as in Compose), telemetry goes to the
+    Collector over OTLP/HTTP; otherwise it is printed to the console.
+    """
+    if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        return OTLPSpanExporter(), OTLPMetricExporter(), OTLPLogExporter()
+    return ConsoleSpanExporter(), ConsoleMetricExporter(), ConsoleLogRecordExporter()
+
+
 def configure_telemetry(span_processor=None, metric_reader=None, log_processor=None):
-    """Install global providers that export traces, metrics and logs to the console.
+    """Install global providers that export traces, metrics and logs.
 
     Runs once per process; tests call it first with in-memory exporters.
     """
@@ -28,18 +43,19 @@ def configure_telemetry(span_processor=None, metric_reader=None, log_processor=N
         return
     _configured = True
     resource = Resource.create({"service.name": SERVICE_NAME})
+    span_exporter, metric_exporter, log_exporter = default_exporters()
 
     tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(span_processor or BatchSpanProcessor(ConsoleSpanExporter()))
+    tracer_provider.add_span_processor(span_processor or BatchSpanProcessor(span_exporter))
     trace.set_tracer_provider(tracer_provider)
 
     # Export interval defaults to 60s; override with OTEL_METRIC_EXPORT_INTERVAL (ms).
-    reader = metric_reader or PeriodicExportingMetricReader(ConsoleMetricExporter())
+    reader = metric_reader or PeriodicExportingMetricReader(metric_exporter)
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
 
     logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(
-        log_processor or BatchLogRecordProcessor(ConsoleLogRecordExporter())
+        log_processor or BatchLogRecordProcessor(log_exporter)
     )
     _logs.set_logger_provider(logger_provider)
     app_logger = logging.getLogger("app")
