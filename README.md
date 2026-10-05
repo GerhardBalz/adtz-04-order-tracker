@@ -55,3 +55,7 @@ The Collector reads `otel-collector.yaml` only at startup, so after editing it r
 Metrics are exported every 60 seconds. Set `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds) to change this, for example `OTEL_METRIC_EXPORT_INTERVAL=5000 docker compose up -d`.
 
 The app uses SQLite to keep setup small. Run one app container at a time. The course exercise is about detecting and handling an incident, not scaling the database.
+
+## Incident responder
+
+`incident-response/` contains a service that receives Grafana alert webhooks on port 8001 and asks Claude Code in headless mode to investigate and fix the incident. See [incident-response/README.md](incident-response/README.md).
